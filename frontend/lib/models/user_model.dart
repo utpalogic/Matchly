@@ -7,8 +7,8 @@ class User {
   final int matchesPlayed;
   final bool isLookingForTeam;
   final bool isBlocked;
-  final String role; // USER, OWNER, ADMIN
-  final int? futsalId; // If owner, their futsal ID
+  final String role;
+  final int? futsalId;
 
   User({
     required this.id,
