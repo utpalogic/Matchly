@@ -7,9 +7,50 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone', 'preferred_position', 
-                  'is_looking_for_team', 'matches_played', 'profile_picture']
-        read_only_fields = ['id', 'matches_played']
+        fields = [
+            'id', 
+            'username', 
+            'email', 
+            'phone', 
+            'full_name',  
+            'gender',  
+            'date_of_birth', 
+            'preferred_position', 
+            'matches_played', 
+            'is_looking_for_team',
+            'is_blocked',
+            'role',
+            'futsal'
+        ]
+        read_only_fields = ['id', 'matches_played', 'is_blocked', 'role']
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=6)
+    confirm_password = serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'username', 
+            'email', 
+            'password', 
+            'confirm_password',
+            'phone', 
+            'full_name',  
+            'gender',  
+            'date_of_birth', 
+            'preferred_position'
+        ]
+    
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords don't match")
+        return data
+    
+    def create(self, validated_data):
+        validated_data.pop('confirm_password')
+        user = User.objects.create_user(**validated_data)
+        return user
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -82,7 +123,7 @@ class BookingSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         booking = Booking.objects.create(**validated_data)
-        # Mark time slot as booked
+        # Marking time slot as booked
         time_slot = booking.time_slot
         time_slot.is_booked = True
         time_slot.save()

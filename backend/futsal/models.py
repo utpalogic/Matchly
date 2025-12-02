@@ -1,25 +1,48 @@
 from django.db import models
 
-# Create your models here.
+# Create models here.
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
 # Custom User Model
 class User(AbstractUser):
+    ROLE_CHOICES = [
+        ('USER', 'Regular User'),
+        ('OWNER', 'Futsal Owner'),
+        ('ADMIN', 'Super Admin'),
+    ]
+    
+    GENDER_CHOICES = [
+        ('MALE', 'Male'),
+        ('FEMALE', 'Female'),
+        ('OTHER', 'Other'),
+    ]
+    
     POSITION_CHOICES = [
         ('GK', 'Goalkeeper'),
         ('DEF', 'Defender'),
         ('MID', 'Midfielder'),
         ('FWD', 'Forward'),
-        ('ANY', 'Any Position'),
     ]
-    phone = models.CharField(max_length=15, blank=True)
-    preferred_position = models.CharField(max_length=3, choices=POSITION_CHOICES, default='ANY')
-    is_looking_for_team = models.BooleanField(default=False)
+    
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='USER')
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    preferred_position = models.CharField(max_length=3, choices=POSITION_CHOICES, blank=True, null=True)
     matches_played = models.IntegerField(default=0)
-    profile_picture = models.ImageField(upload_to='profiles/', null=True, blank=True)
+    is_looking_for_team = models.BooleanField(default=False)
+    is_blocked = models.BooleanField(default=False)
+    futsal = models.ForeignKey('Futsal', on_delete=models.SET_NULL, null=True, blank=True)
+    
 
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
+    full_name = models.CharField(max_length=255, blank=True, null=True)
+    
+
+    password_reset_token = models.CharField(max_length=100, blank=True, null=True)
+    password_reset_token_created = models.DateTimeField(null=True, blank=True)
+    
     def __str__(self):
         return self.username
 

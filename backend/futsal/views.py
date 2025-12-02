@@ -1,6 +1,13 @@
-from django.shortcuts import render
+import secrets
+from datetime import timedelta
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
 
-# Create your views here.
+from .models import *
+from .serializers import *
+
+# Create views here.
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -12,7 +19,7 @@ from .serializers import *
 
 User = get_user_model()
 
-# User Registration & Profile
+# User Registration  and Profile
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -59,6 +66,86 @@ def register(request):
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    """Reset password using token"""
+    token = request.data.get('token')
+    new_password = request.data.get('new_password')
+    
+    if not token or not new_password:
+        return Response(
+            {'error': 'Token and new password required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = User.objects.get(password_reset_token=token)
+        
+        # Check if token is expired
+        if user.password_reset_token_created:
+            expiry = user.password_reset_token_created + timedelta(hours=24)
+            if timezone.now() > expiry:
+                return Response(
+                    {'error': 'Token expired. Please request a new reset link.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Set new password
+        user.set_password(new_password)
+        user.password_reset_token = None
+        user.password_reset_token_created = None
+        user.save()
+        
+        return Response({'message': 'Password reset successful. You can now login.'})
+        
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Invalid or expired token'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    """Send password reset email"""
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+    
+    try:
+        user = User.objects.get(email=email)
+        
+        # Generate reset token
+        token = secrets.token_urlsafe(32)
+        user.password_reset_token = token
+        user.password_reset_token_created = timezone.now()
+        user.save()
+        
+        # In development, just return the token
+        # In production, send email
+        reset_link = f"futsalapp://reset-password?token={token}"
+        
+        # TODO: Send actual email in production
+        # send_mail(
+        #     'Password Reset',
+        #     f'Click here to reset: {reset_link}',
+        #     settings.DEFAULT_FROM_EMAIL,
+        #     [email],
+        # )
+        
+        return Response({
+            'message': 'Password reset link sent to your email',
+            'token': token  
+        })
+        
+    except User.DoesNotExist:
+       
+        return Response({
+            'message': 'If email exists, reset link has been sent'
+        })
+
 # Futsal & Grounds
 class FutsalViewSet(viewsets.ModelViewSet):
     queryset = Futsal.objects.filter(is_active=True)
@@ -93,7 +180,7 @@ class GroundViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsAdminUser()]
 
-# Time Slots
+
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer
@@ -122,7 +209,7 @@ class TeamViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         team = serializer.save(captain=self.request.user)
-        # Create reward tracker
+        #Reward tracker
         RewardTracker.objects.create(team=team)
     
     @action(detail=True, methods=['post'])
