@@ -39,6 +39,22 @@ class StorageService {
     await _storage.write(key: _roleKey, value: role);
   }
 
+  Future<void> saveUserId(int userId) async {
+    await _storage.write(key: _userIdKey, value: userId.toString());
+  }
+
+  Future<void> saveUsername(String username) async {
+    await _storage.write(key: _usernameKey, value: username);
+  }
+
+  Future<void> saveEmail(String email) async {
+    await _storage.write(key: _emailKey, value: email);
+  }
+
+  Future<void> saveRole(String role) async {
+    await _storage.write(key: _roleKey, value: role);
+  }
+
   // Get access token
   Future<String?> getAccessToken() async {
     return await _storage.read(key: _accessTokenKey);

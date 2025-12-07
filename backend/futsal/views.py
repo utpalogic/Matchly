@@ -3,17 +3,16 @@ from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
+from django.shortcuts import render
 
-from .models import *
-from .serializers import *
-
-# Create views here.
+# REST Framework imports
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+
 from .models import *
 from .serializers import *
 
@@ -57,7 +56,7 @@ class UserViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
-    serializer = UserRegistrationSerializer(data=request.data)
+    serializer = RegisterSerializer(data=request.data)  
     if serializer.is_valid():
         user = serializer.save()
         return Response({

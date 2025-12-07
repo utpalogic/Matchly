@@ -1,46 +1,55 @@
 class ApiConstants {
-  // Base URL - Change this to your backend IP when running on device
+  // Base URL
   static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String apiUrl = '$baseUrl/api';
 
   // Auth endpoints
-  static const String login = '/api/token/';
-  static const String refreshToken = '/api/token/refresh/';
-  static const String register = '/api/register/';
-  static const String changePassword = '/api/change-password/';
+  static const String login = '$apiUrl/token/';
+  static const String refreshToken = '$apiUrl/token/refresh/';
+  static const String register = '$apiUrl/register/';
+  static const String forgotPassword = '$apiUrl/forgot-password/';
+  static const String resetPassword = '$apiUrl/reset-password/';
 
   // User endpoints
-  static const String users = '/api/users/';
-  static const String userMe = '/api/users/me/';
+  static const String users = '$apiUrl/users/';
+  static const String userMe = '$apiUrl/users/me/';
+  static const String updateProfile = '$apiUrl/users/update_profile/';
+  static const String changePassword = '$apiUrl/users/change_password/';
+  static const String toggleLookingForTeam =
+      '$apiUrl/users/toggle_looking_for_team/';
+  static const String lookingForTeam = '$apiUrl/users/looking_for_team/';
 
   // Futsal endpoints
-  static const String futsals = '/api/futsals/';
-  static const String grounds = '/api/grounds/';
-  static const String timeSlots = '/api/time-slots/';
+  static const String futsals = '$apiUrl/futsals/';
+  static const String grounds = '$apiUrl/grounds/';
+  static const String timeSlots = '$apiUrl/timeslots/';
 
   // Booking endpoints
-  static const String bookings = '/api/bookings/';
-  static const String cancelBooking = '/api/bookings/{id}/cancel/';
+  static const String bookings = '$apiUrl/bookings/';
+  static const String cancelBooking = '$apiUrl/bookings/{id}/cancel/';
+  static const String completeBooking = '$apiUrl/bookings/{id}/complete/';
 
   // Team endpoints
-  static const String teams = '/api/teams/';
-  static const String joinTeam = '/api/teams/{id}/join/';
-  static const String leaveTeam = '/api/teams/{id}/leave/';
+  static const String teams = '$apiUrl/teams/';
+  static const String myTeams = '$apiUrl/teams/my_teams/';
+  static const String joinTeam = '$apiUrl/teams/{id}/join/';
+  static const String leaveTeam = '$apiUrl/teams/{id}/leave/';
 
-  // Community endpoints
-  static const String posts = '/api/posts/';
-  static const String likePost = '/api/posts/{id}/like/';
-  static const String commentPost = '/api/posts/{id}/comment/';
+  // Post endpoints
+  static const String posts = '$apiUrl/posts/';
+  static const String likePost = '$apiUrl/posts/{id}/like/';
+  static const String addComment = '$apiUrl/posts/{id}/add_comment/';
 
   // Tournament endpoints
-  static const String tournaments = '/api/tournaments/';
-  static const String registerTournament = '/api/tournaments/{id}/register/';
-  static const String fixtures = '/api/fixtures/';
+  static const String tournaments = '$apiUrl/tournaments/';
+  static const String registerTeamForTournament =
+      '$apiUrl/tournaments/{id}/register_team/';
 
-  // Payment endpoints
-  static const String verifyPayment = '/api/verify-khalti-payment/';
+  // Payment verification
+  static const String verifyPayment = '$apiUrl/verify-payment/';
 
-  // Utility function to replace {id} in URLs
-  static String replaceId(String endpoint, dynamic id) {
+  // Helper method to replace {id} with actual id
+  static String replaceId(String endpoint, int id) {
     return endpoint.replaceAll('{id}', id.toString());
   }
 }

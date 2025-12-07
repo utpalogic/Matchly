@@ -1,11 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:frontend/services/auth_services.dart';
 import '../models/user_model.dart';
-import '../services/storage_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
-  final StorageService _storageService = StorageService();
 
   User? _currentUser;
   bool _isLoading = false;
@@ -23,11 +21,15 @@ class AuthProvider with ChangeNotifier {
   bool get isAdmin => _currentUser?.role == 'ADMIN';
 
   // Register
-  Future<bool> register({
+  Future<Map<String, dynamic>> register({
     required String username,
     required String email,
     required String password,
-    required String phone,
+    required String confirmPassword,
+    String? phone,
+    String? fullName,
+    String? gender,
+    String? dateOfBirth,
     String? preferredPosition,
   }) async {
     _isLoading = true;
@@ -39,59 +41,51 @@ class AuthProvider with ChangeNotifier {
         username: username,
         email: email,
         password: password,
+        confirmPassword: confirmPassword,
         phone: phone,
+        fullName: fullName,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
         preferredPosition: preferredPosition,
       );
 
       _isLoading = false;
+      notifyListeners();
 
-      if (result['success']) {
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage = result['message'];
-        notifyListeners();
-        return false;
-      }
+      return result;
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString();
       notifyListeners();
-      return false;
+      return {'success': false, 'message': e.toString()};
     }
   }
 
   // Login
-  Future<bool> login({
-    required String username,
-    required String password,
-  }) async {
+  Future<Map<String, dynamic>> login(String username, String password) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await _authService.login(
-        username: username,
-        password: password,
-      );
+      final result = await _authService.login(username, password);
 
       _isLoading = false;
 
       if (result['success']) {
         _currentUser = result['user'];
         notifyListeners();
-        return true;
       } else {
         _errorMessage = result['message'];
         notifyListeners();
-        return false;
       }
+
+      return result;
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString();
       notifyListeners();
-      return false;
+      return {'success': false, 'message': e.toString()};
     }
   }
 
@@ -120,8 +114,11 @@ class AuthProvider with ChangeNotifier {
   }
 
   // Update profile
-  Future<bool> updateProfile({
+  Future<Map<String, dynamic>> updateProfile({
     String? phone,
+    String? fullName,
+    String? gender,
+    String? dateOfBirth,
     String? preferredPosition,
     bool? isLookingForTeam,
   }) async {
@@ -132,6 +129,9 @@ class AuthProvider with ChangeNotifier {
     try {
       final result = await _authService.updateProfile(
         phone: phone,
+        fullName: fullName,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
         preferredPosition: preferredPosition,
         isLookingForTeam: isLookingForTeam,
       );
@@ -141,17 +141,17 @@ class AuthProvider with ChangeNotifier {
       if (result['success']) {
         _currentUser = result['user'];
         notifyListeners();
-        return true;
       } else {
         _errorMessage = result['message'];
         notifyListeners();
-        return false;
       }
+
+      return result;
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString();
       notifyListeners();
-      return false;
+      return {'success': false, 'message': e.toString()};
     }
   }
 

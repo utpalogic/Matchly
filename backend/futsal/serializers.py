@@ -47,21 +47,14 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords don't match")
         return data
     
+    # ADD THIS METHOD (it was missing!)
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         user = User.objects.create_user(**validated_data)
         return user
 
-class UserRegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    
-    class Meta:
-        model = User
-        fields = ['username', 'email', 'password', 'phone', 'preferred_position']
-    
-    def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+# DELETE UserRegistrationSerializer - we don't need it anymore
+# (Remove lines 29-37)
 
 class GroundSerializer(serializers.ModelSerializer):
     class Meta:
@@ -160,7 +153,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class PostSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source='author.username', read_only=True)
-    author_picture = serializers.ImageField(source='author.profile_picture', read_only=True)
+    author_picture = serializers.ImageField(source='author.picture', read_only=True)
     likes_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
     comments = CommentSerializer(many=True, read_only=True)

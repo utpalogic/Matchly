@@ -5,12 +5,15 @@ import 'storage_service.dart';
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
-  ApiService._internal();
+
+  ApiService._internal() {
+    initialize();
+  }
 
   late final Dio _dio;
   final StorageService _storageService = StorageService();
+  bool _isRefreshing = false;
 
-  // Initialize Dio
   void initialize() {
     _dio = Dio(
       BaseOptions(
@@ -24,49 +27,58 @@ class ApiService {
       ),
     );
 
-    // Add interceptor for auth token
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Add auth token to headers
+          // Skip auth for public endpoints
+          final publicEndpoints = [
+            '/token',
+            '/register',
+            '/forgot-password',
+            '/reset-password',
+          ];
+          if (publicEndpoints.any(
+            (endpoint) => options.path.contains(endpoint),
+          )) {
+            return handler.next(options);
+          }
+
+          // Add token for protected endpoints
           final token = await _storageService.getAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
-        onError: (error, handler) async {
-          // Handle 401 Unauthorized (token expired)
-          if (error.response?.statusCode == 401) {
-            // Try to refresh token
-            final refreshed = await _refreshToken();
-            if (refreshed) {
-              // Retry the request
-              final options = error.requestOptions;
-              final token = await _storageService.getAccessToken();
-              options.headers['Authorization'] = 'Bearer $token';
+       onError: (error, handler) async {
+      // Handle 401 Unauthorized (token expired)
+      if (error.response?.statusCode == 401) {
+        // ❌ PROBLEM: Tries to refresh for EVERY 401, including login failures!
+        // Try to refresh token
+        final refreshed = await _refreshToken();
+        if (refreshed) {
+          // Retry the request
+          final options = error.requestOptions;
+          final token = await _storageService.getAccessToken();
+          options.headers['Authorization'] = 'Bearer $token';
 
-              try {
-                final response = await _dio.fetch(options);
-                return handler.resolve(response);
-              } catch (e) {
-                return handler.reject(error);
-              }
-            }
+          try {
+            final response = await _dio.fetch(options);
+            return handler.resolve(response);
+          } catch (e) {
+            return handler.reject(error);
           }
-          return handler.next(error);
-        },
-      ),
-    );
-  }
+        }
+      }
+      return handler.next(error);
+    },
 
-  // Refresh token
   Future<bool> _refreshToken() async {
     try {
       final refreshToken = await _storageService.getRefreshToken();
       if (refreshToken == null) return false;
 
-      final response = await _dio.post(
+      final response = await Dio().post(
         ApiConstants.refreshToken,
         data: {'refresh': refreshToken},
       );
@@ -85,7 +97,6 @@ class ApiService {
     }
   }
 
-  // GET request
   Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
@@ -98,7 +109,6 @@ class ApiService {
     }
   }
 
-  // POST request
   Future<Response> post(
     String path, {
     dynamic data,
@@ -116,7 +126,6 @@ class ApiService {
     }
   }
 
-  // PUT request
   Future<Response> put(
     String path, {
     dynamic data,
@@ -134,7 +143,6 @@ class ApiService {
     }
   }
 
-  // PATCH request
   Future<Response> patch(
     String path, {
     dynamic data,
@@ -152,7 +160,6 @@ class ApiService {
     }
   }
 
-  // DELETE request
   Future<Response> delete(
     String path, {
     dynamic data,
@@ -170,7 +177,6 @@ class ApiService {
     }
   }
 
-  // Upload file (for images)
   Future<Response> uploadFile(
     String path,
     String filePath, {
@@ -194,7 +200,6 @@ class ApiService {
     }
   }
 
-  // Error handler
   String _handleError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
@@ -211,7 +216,6 @@ class ApiService {
           if (data.containsKey('error')) {
             return data['error'].toString();
           }
-          // Try to get first error from validation errors
           if (data.isNotEmpty) {
             final firstError = data.values.first;
             if (firstError is List && firstError.isNotEmpty) {
