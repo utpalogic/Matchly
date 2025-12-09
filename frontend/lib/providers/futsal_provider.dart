@@ -23,21 +23,28 @@ class FutsalProvider with ChangeNotifier {
 
   // Fetch all futsals
   Future<void> fetchFutsals() async {
+    print('fetchFutsals called');
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
+      print('Making API call to: ${ApiConstants.futsals}');
       final response = await _apiService.get(ApiConstants.futsals);
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['results'] ?? response.data;
+        print('Data count: ${data.length}');
         _futsals = data.map((json) => Futsal.fromJson(json)).toList();
+        print('Futsals loaded: ${_futsals.length}');
       }
 
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      print('Error: $e');
       _isLoading = false;
       _errorMessage = e.toString();
       notifyListeners();

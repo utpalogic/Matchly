@@ -149,7 +149,7 @@ def forgot_password(request):
 class FutsalViewSet(viewsets.ModelViewSet):
     queryset = Futsal.objects.filter(is_active=True)
     serializer_class = FutsalSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'location']
     

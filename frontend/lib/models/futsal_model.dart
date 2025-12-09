@@ -71,7 +71,9 @@ class Ground {
       id: json['id'],
       futsalId: json['futsal'],
       name: json['name'],
-      pricePerHour: (json['price_per_hour']).toDouble(),
+      pricePerHour: double.parse(
+        json['price_per_hour'].toString(),
+      ), //This one works for both string and number
       isAvailable: json['is_available'] ?? true,
     );
   }

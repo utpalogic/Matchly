@@ -50,28 +50,48 @@ class ApiService {
           }
           return handler.next(options);
         },
-       onError: (error, handler) async {
-      // Handle 401 Unauthorized (token expired)
-      if (error.response?.statusCode == 401) {
-        // ❌ PROBLEM: Tries to refresh for EVERY 401, including login failures!
-        // Try to refresh token
-        final refreshed = await _refreshToken();
-        if (refreshed) {
-          // Retry the request
-          final options = error.requestOptions;
-          final token = await _storageService.getAccessToken();
-          options.headers['Authorization'] = 'Bearer $token';
-
-          try {
-            final response = await _dio.fetch(options);
-            return handler.resolve(response);
-          } catch (e) {
-            return handler.reject(error);
+        onError: (error, handler) async {
+          // Don't try to refresh for public endpoints
+          final publicEndpoints = [
+            '/token',
+            '/register',
+            '/forgot-password',
+            '/reset-password',
+          ];
+          if (publicEndpoints.any(
+            (endpoint) => error.requestOptions.path.contains(endpoint),
+          )) {
+            return handler.next(error);
           }
-        }
-      }
-      return handler.next(error);
-    },
+
+          // Only try refresh for protected endpoints with 401
+          if (error.response?.statusCode == 401 && !_isRefreshing) {
+            final refreshToken = await _storageService.getRefreshToken();
+
+            if (refreshToken != null && refreshToken.isNotEmpty) {
+              _isRefreshing = true;
+              final refreshed = await _refreshToken();
+              _isRefreshing = false;
+
+              if (refreshed) {
+                final options = error.requestOptions;
+                final token = await _storageService.getAccessToken();
+                options.headers['Authorization'] = 'Bearer $token';
+
+                try {
+                  final response = await _dio.fetch(options);
+                  return handler.resolve(response);
+                } catch (e) {
+                  return handler.reject(error);
+                }
+              }
+            }
+          }
+          return handler.next(error);
+        },
+      ),
+    );
+  }
 
   Future<bool> _refreshToken() async {
     try {
