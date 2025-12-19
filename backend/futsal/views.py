@@ -124,6 +124,7 @@ def forgot_password(request):
         
         # In development, just return the token
         # In production, send email
+        # The email provision is yet to be implemented
         reset_link = f"futsalapp://reset-password?token={token}"
         
         # TODO: Send actual email in production

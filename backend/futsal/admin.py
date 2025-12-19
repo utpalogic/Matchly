@@ -1,8 +1,5 @@
 from django.contrib import admin
-
-# Register models here.
-from django.contrib import admin
-from .models import *
+from .models import User, Futsal, Ground, TimeSlot, Booking, Team, Tournament, Fixture, Post, Comment, RewardTracker
 
 admin.site.register(User)
 admin.site.register(Futsal)

@@ -13,45 +13,15 @@ class GetStartedScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const Spacer(flex: 2),
-
-            // Soccer player illustration placeholder
+            // Player image taking the entire top section
             Expanded(
-              flex: 8,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Placeholder for image
-                    Container(
-                      width: 250,
-                      height: 250,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.sports_soccer,
-                        size: 120,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Add your soccer player image here',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      'Path: assets/images/soccer_player.png',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/player.jpg'),
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
@@ -59,7 +29,7 @@ class GetStartedScreen extends StatelessWidget {
             // Bottom section with text and button
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -68,13 +38,14 @@ class GetStartedScreen extends StatelessWidget {
                 ),
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Motivational text
                   RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
                       style: const TextStyle(
-                        fontSize: 28,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                         height: 1.3,
                       ),
@@ -99,7 +70,7 @@ class GetStartedScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 30),
 
                   // Get Started button
                   CustomButton(

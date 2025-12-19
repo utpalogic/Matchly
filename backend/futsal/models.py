@@ -1,7 +1,4 @@
 from django.db import models
-
-# Create models here.
-from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
@@ -34,12 +31,10 @@ class User(AbstractUser):
     is_blocked = models.BooleanField(default=False)
     futsal = models.ForeignKey('Futsal', on_delete=models.SET_NULL, null=True, blank=True)
     
-
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
     full_name = models.CharField(max_length=255, blank=True, null=True)
     
-
     password_reset_token = models.CharField(max_length=100, blank=True, null=True)
     password_reset_token_created = models.DateTimeField(null=True, blank=True)
     
@@ -64,7 +59,7 @@ class Futsal(models.Model):
 # Ground within Futsal
 class Ground(models.Model):
     futsal = models.ForeignKey(Futsal, on_delete=models.CASCADE, related_name='grounds')
-    name = models.CharField(max_length=50)  # e.g., "Ground A", "Ground B"
+    name = models.CharField(max_length=50)
     price_per_hour = models.DecimalField(max_digits=10, decimal_places=2)
     is_available = models.BooleanField(default=True)
 
@@ -92,7 +87,7 @@ class Team(models.Model):
     name = models.CharField(max_length=100)
     captain = models.ForeignKey(User, on_delete=models.CASCADE, related_name='captained_teams')
     members = models.ManyToManyField(User, related_name='teams', blank=True)
-    matches_count = models.IntegerField(default=0)  # For reward tracking
+    matches_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -121,7 +116,7 @@ class Booking(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='CONFIRMED')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='PENDING')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    is_reward_booking = models.BooleanField(default=False)  # Free 8th match
+    is_reward_booking = models.BooleanField(default=False)
     booking_date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
 
