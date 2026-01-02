@@ -30,7 +30,7 @@ class User(AbstractUser):
     is_looking_for_team = models.BooleanField(default=False)
     is_blocked = models.BooleanField(default=False)
     futsal = models.ForeignKey('Futsal', on_delete=models.SET_NULL, null=True, blank=True)
-    
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
     full_name = models.CharField(max_length=255, blank=True, null=True)
@@ -202,7 +202,7 @@ class Comment(models.Model):
 
 # Reward Tracking
 class RewardTracker(models.Model):
-    team = models.OneToOneField(Team, on_delete=models.CASCADE, related_name='reward_tracker')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='reward_tracker')
     matches_since_reward = models.IntegerField(default=0)
     total_rewards_claimed = models.IntegerField(default=0)
     next_reward_at = models.IntegerField(default=8)

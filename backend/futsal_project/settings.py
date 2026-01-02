@@ -121,3 +121,4 @@ SIMPLE_JWT = {
 # CORS Settings (for Flutter app)
 CORS_ALLOW_ALL_ORIGINS = True  # Change in production
 CORS_ALLOW_CREDENTIALS = True
+

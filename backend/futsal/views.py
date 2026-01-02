@@ -10,6 +10,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
@@ -30,12 +31,17 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def me(self, request):
-        serializer = self.get_serializer(request.user)
+        serializer = self.get_serializer(request.user, context={'request': request})  # ADD context
         return Response(serializer.data)
     
     @action(detail=False, methods=['patch'])
     def update_profile(self, request):
-        serializer = self.get_serializer(request.user, data=request.data, partial=True)
+        serializer = self.get_serializer(
+            request.user, 
+            data=request.data, 
+            partial=True,
+            context={'request': request}  # ADD context
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -50,8 +56,55 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def looking_for_team(self, request):
         users = User.objects.filter(is_looking_for_team=True).exclude(id=request.user.id)
-        serializer = self.get_serializer(users, many=True)
+        serializer = self.get_serializer(users, many=True, context={'request': request})  # ADD context
         return Response(serializer.data)
+        
+    
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_profile_picture(self, request):
+        """Upload profile picture"""
+        user = request.user
+        
+        if 'profile_picture' not in request.FILES:
+            return Response(
+                {'error': 'No image provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Delete old profile picture if exists
+        if user.profile_picture:
+            try:
+                user.profile_picture.delete(save=False)
+            except:
+                pass
+        
+        # Save new profile picture
+        user.profile_picture = request.FILES['profile_picture']
+        user.save()
+        
+        # Return updated user data WITH CONTEXT
+        serializer = self.get_serializer(user, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def remove_profile_picture(self, request):
+        """Remove profile picture"""
+        user = request.user
+
+        if user.profile_picture:
+            try:
+                # Delete the file
+                user.profile_picture.delete(save=False)
+            except:
+                pass
+
+        # Set to null
+        user.profile_picture = None
+        user.save()
+
+        # Return updated user data
+        serializer = self.get_serializer(user, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -67,6 +120,37 @@ def register(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+def forgot_password(request):
+    """Send password reset token"""
+    email = request.data.get('email')
+    
+    if not email:
+        return Response({'error': 'Email is required'}, status=400)
+    
+    # Use filter().first() to handle duplicates
+    user = User.objects.filter(email=email).first()
+    
+    if not user:
+        return Response(
+            {'error': 'No account found with this email'}, 
+            status=404
+        )
+    
+    # Generate reset token
+    token = secrets.token_urlsafe(32)
+    user.password_reset_token = token
+    user.password_reset_token_created = timezone.now()
+    user.save()
+    
+    # Return token
+    return Response({
+        'token': token,
+        'email': email
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def reset_password(request):
     """Reset password using token"""
     token = request.data.get('token')
@@ -75,77 +159,34 @@ def reset_password(request):
     if not token or not new_password:
         return Response(
             {'error': 'Token and new password required'}, 
-            status=status.HTTP_400_BAD_REQUEST
+            status=400
         )
     
     try:
         user = User.objects.get(password_reset_token=token)
         
-        # Check if token is expired
+        # Check if token is expired (24 hours)
         if user.password_reset_token_created:
             expiry = user.password_reset_token_created + timedelta(hours=24)
             if timezone.now() > expiry:
                 return Response(
-                    {'error': 'Token expired. Please request a new reset link.'}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                    {'error': 'Token expired'}, 
+                    status=400
                 )
         
-        # Set new password
+        # CRITICAL: Use set_password to hash the password
         user.set_password(new_password)
         user.password_reset_token = None
         user.password_reset_token_created = None
         user.save()
         
-        return Response({'message': 'Password reset successful. You can now login.'})
+        return Response({'success': True})
         
     except User.DoesNotExist:
         return Response(
-            {'error': 'Invalid or expired token'}, 
-            status=status.HTTP_400_BAD_REQUEST
+            {'error': 'Invalid token'}, 
+            status=400
         )
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def forgot_password(request):
-    """Send password reset email"""
-    email = request.data.get('email')
-    
-    if not email:
-        return Response({'error': 'Email is required'}, status=400)
-    
-    try:
-        user = User.objects.get(email=email)
-        
-        # Generate reset token
-        token = secrets.token_urlsafe(32)
-        user.password_reset_token = token
-        user.password_reset_token_created = timezone.now()
-        user.save()
-        
-        # In development, just return the token
-        # In production, send email
-        # The email provision is yet to be implemented
-        reset_link = f"futsalapp://reset-password?token={token}"
-        
-        # TODO: Send actual email in production
-        # send_mail(
-        #     'Password Reset',
-        #     f'Click here to reset: {reset_link}',
-        #     settings.DEFAULT_FROM_EMAIL,
-        #     [email],
-        # )
-        
-        return Response({
-            'message': 'Password reset link sent to your email',
-            'token': token  
-        })
-        
-    except User.DoesNotExist:
-       
-        return Response({
-            'message': 'If email exists, reset link has been sent'
-        })
-
 # Futsal & Grounds
 class FutsalViewSet(viewsets.ModelViewSet):
     queryset = Futsal.objects.filter(is_active=True)

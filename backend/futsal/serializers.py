@@ -5,6 +5,8 @@ from .models import *
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_picture_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
         fields = [
@@ -16,45 +18,51 @@ class UserSerializer(serializers.ModelSerializer):
             'gender',  
             'date_of_birth', 
             'preferred_position', 
+            'role',
+            'profile_picture',
+            'profile_picture_url',
             'matches_played', 
             'is_looking_for_team',
             'is_blocked',
-            'role',
             'futsal'
         ]
-        read_only_fields = ['id', 'matches_played', 'is_blocked', 'role']
+        read_only_fields = ['id', 'matches_played', 'is_blocked']
+    
+        #added this method to get full url of profile picture
+    def get_profile_picture_url(self, obj):
+        """Generate full URL for profile picture"""
+        if obj.profile_picture:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+        return None
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
-    confirm_password = serializers.CharField(write_only=True)
     
     class Meta:
         model = User
-        fields = [
-            'username', 
-            'email', 
-            'password', 
-            'confirm_password',
-            'phone', 
-            'full_name',  
-            'gender',  
-            'date_of_birth', 
-            'preferred_position'
-        ]
+        fields = ['username', 'email', 'password', 'phone', 'full_name', 
+                  'gender', 'date_of_birth', 'preferred_position', 'role']
     
-    def validate(self, data):
-        if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError("Passwords don't match")
-        return data
-    
-    # ADD THIS METHOD (it was missing!)
     def create(self, validated_data):
-        validated_data.pop('confirm_password')
-        user = User.objects.create_user(**validated_data)
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data.get('email', ''),
+            password=validated_data['password'],  # create_user will hash this
+        )
+        
+        # Set additional fields
+        user.phone = validated_data.get('phone', '')
+        user.full_name = validated_data.get('full_name', '')
+        user.gender = validated_data.get('gender', '')
+        user.date_of_birth = validated_data.get('date_of_birth')
+        user.preferred_position = validated_data.get('preferred_position', '')
+        user.role = validated_data.get('role', 'PLAYER')
+        
+        user.save()
         return user
 
-# DELETE UserRegistrationSerializer - we don't need it anymore
-# (Remove lines 29-37)
 
 class GroundSerializer(serializers.ModelSerializer):
     class Meta:
