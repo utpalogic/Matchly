@@ -1,334 +1,364 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/futsal_model.dart';
+import 'time_slot_selection_screen.dart';
 
-class FutsalDetailScreen extends StatefulWidget {
-  final dynamic futsal;
+class FutsalDetailScreen extends StatelessWidget {
+  final Futsal futsal;
 
-  const FutsalDetailScreen({Key? key, required this.futsal}) : super(key: key);
-
-  @override
-  State<FutsalDetailScreen> createState() => _FutsalDetailScreenState();
-}
-
-class _FutsalDetailScreenState extends State<FutsalDetailScreen> {
-  bool isFavorite = false;
-  bool showFullDescription = false;
+  const FutsalDetailScreen({super.key, required this.futsal});
 
   @override
   Widget build(BuildContext context) {
+    final grounds = futsal.grounds ?? [];
+
     return Scaffold(
-      body: Stack(
-        children: [
-          // Scrollable Content
-          CustomScrollView(
-            slivers: [
-              // Image Header
-              SliverAppBar(
-                expandedHeight: 300,
-                pinned: true,
-                backgroundColor: AppColors.primary,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(
-                      isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: Colors.white,
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        slivers: [
+          // App Bar with Image
+          SliverAppBar(
+            expandedHeight: 300,
+            pinned: true,
+            backgroundColor: AppColors.primary,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Futsal Image
+                  futsal.image != null && futsal.image!.isNotEmpty
+                      ? Image.network(
+                          futsal.image!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildPlaceholderImage();
+                          },
+                        )
+                      : _buildPlaceholderImage(),
+
+                  // Gradient Overlay
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
+                      ),
                     ),
-                    onPressed: () {
-                      setState(() {
-                        isFavorite = !isFavorite;
-                      });
-                    },
                   ),
                 ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Image.asset(
-                    'assets/images/futsal3.jpg',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppColors.primary.withOpacity(0.3),
-                        child: Icon(
-                          Icons.sports_soccer,
-                          size: 100,
-                          color: Colors.white.withOpacity(0.5),
-                        ),
-                      );
-                    },
-                  ),
-                ),
               ),
+            ),
+          ),
 
-              // Content
-              SliverToBoxAdapter(
-                child: Container(
-                  color: Colors.white,
-                  child: Column(
+          // Content
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Futsal Name & Rating
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Futsal info Card
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(30),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, -2),
-                            ),
-                          ],
-                        ),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Name and Rating
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    widget.futsal.name,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              futsal.name,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
                             ),
-
                             const SizedBox(height: 8),
-
-                            // Rating and Location
                             Row(
                               children: [
-                                Icon(
-                                  Icons.star,
-                                  color: Colors.amber.shade600,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  '4.5',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
                                 Icon(
                                   Icons.location_on,
-                                  color: Colors.red.shade400,
-                                  size: 20,
+                                  size: 18,
+                                  color: Colors.grey.shade600,
                                 ),
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
-                                    widget.futsal.location ??
-                                        'Thamel, Lalitpur',
+                                    futsal.location ?? 'Location not specified',
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey.shade600,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
-
-                            const SizedBox(height: 20),
-
-                            // Description
+                          ],
+                        ),
+                      ),
+                      // Rating
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.star, size: 18, color: Colors.amber),
+                            SizedBox(width: 4),
                             Text(
-                              'About',
+                              '4.8',
                               style: TextStyle(
-                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.futsal.description ??
-                                  'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.',
-                              style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey.shade600,
-                                height: 1.5,
-                              ),
-                              maxLines: showFullDescription ? null : 3,
-                              overflow: showFullDescription
-                                  ? null
-                                  : TextOverflow.ellipsis,
-                            ),
-                            if (!showFullDescription)
-                              TextButton(
-                                onPressed: () {
-                                  setState(() {
-                                    showFullDescription = true;
-                                  });
-                                },
-                                child: Text(
-                                  'Read More...',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-
-                            const SizedBox(height: 20),
-                            const Divider(),
-                            const SizedBox(height: 20),
-
-                            // Facilities
-                            Text(
-                              'Facilities',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: [
-                                _buildFacilityChip(
-                                  'Parking',
-                                  Icons.local_parking,
-                                ),
-                                _buildFacilityChip(
-                                  'Changing Room',
-                                  Icons.checkroom,
-                                ),
-                                _buildFacilityChip(
-                                  'Cafeteria',
-                                  Icons.restaurant,
-                                ),
-                                _buildFacilityChip(
-                                  'First Aid',
-                                  Icons.medical_services,
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-                            const Divider(),
-                            const SizedBox(height: 20),
-
-                            // Reviews Section
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Reviews',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey.shade800,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    // TODO: Show all reviews
-                                  },
-                                  child: Text(
-                                    'See All',
-                                    style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Sample Review
-                            _buildReviewCard(
-                              name: 'Utpala Khatri',
-                              rating: 4,
-                              date: '12/03/2025',
-                              review:
-                                  'Lorem Ipsum is simply dummy text of the printing',
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            _buildReviewCard(
-                              name: 'John Doe',
-                              rating: 5,
-                              date: '10/03/2025',
-                              review:
-                                  'Great place! Had an amazing experience playing here.',
-                            ),
-
-                            const SizedBox(
-                              height: 100,
-                            ), // Space for bottom button
                           ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
 
-          // Bottom Booking Button
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Navigate to booking screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Booking screen coming soon!'),
-                      backgroundColor: Colors.green,
+                  const SizedBox(height: 20),
+
+                  // Description
+                  if (futsal.description != null &&
+                      futsal.description!.isNotEmpty) ...[
+                    const Text(
+                      'About',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    const SizedBox(height: 8),
+                    Text(
+                      futsal.description!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Contact
+                  if (futsal.contact != null && futsal.contact!.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 20, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          futsal.contact!,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Available Grounds
+                  const Text(
+                    'Available Grounds',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Rs.1200 - Book Now',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  const SizedBox(height: 16),
+
+                  // Grounds List
+                  if (grounds.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(
+                          'No grounds available',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...grounds.map(
+                      (ground) => _buildGroundCard(context, ground),
+                    ),
+
+                  const SizedBox(height: 30),
+
+                  // Reviews Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Reviews',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          // TODO: Navigate to all reviews
+                        },
+                        child: Text(
+                          'See All',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+
+                  const SizedBox(height: 16),
+
+                  // Overall Rating Card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withOpacity(0.1),
+                          AppColors.primary.withOpacity(0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Overall Rating
+                        Column(
+                          children: [
+                            const Text(
+                              '4.8',
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Row(
+                              children: List.generate(5, (index) {
+                                return const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 20,
+                                );
+                              }),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '120 reviews',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(width: 24),
+
+                        // Rating Breakdown
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _buildRatingBar(5, 85),
+                              _buildRatingBar(4, 10),
+                              _buildRatingBar(3, 3),
+                              _buildRatingBar(2, 1),
+                              _buildRatingBar(1, 1),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Individual Reviews
+                  _buildReviewCard(
+                    name: 'Rajesh Kumar',
+                    rating: 5,
+                    date: '2 days ago',
+                    comment:
+                        'Great facilities! The ground is well-maintained and the staff is very friendly. Highly recommended!',
+                    avatar: '👤',
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _buildReviewCard(
+                    name: 'Amit Sharma',
+                    rating: 5,
+                    date: '1 week ago',
+                    comment:
+                        'Best futsal in the area. Clean changing rooms and good parking space. Will definitely come back!',
+                    avatar: '👨',
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _buildReviewCard(
+                    name: 'Priya Thapa',
+                    rating: 4,
+                    date: '2 weeks ago',
+                    comment:
+                        'Good experience overall. The turf quality is excellent. Only improvement needed is better lighting.',
+                    avatar: '👩',
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Write Review Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _showWriteReviewDialog(context);
+                      },
+                      icon: const Icon(Icons.rate_review),
+                      label: const Text('Write a Review'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
           ),
@@ -337,25 +367,160 @@ class _FutsalDetailScreenState extends State<FutsalDetailScreen> {
     );
   }
 
-  Widget _buildFacilityChip(String label, IconData icon) {
+  Widget _buildPlaceholderImage() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.primary),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
+      child: const Center(
+        child: Icon(Icons.sports_soccer, size: 80, color: Colors.white54),
+      ),
+    );
+  }
+
+  Widget _buildGroundCard(BuildContext context, Ground ground) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    TimeSlotSelectionScreen(futsal: futsal, ground: ground),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Ground Icon
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.sports_soccer,
+                    color: AppColors.primary,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Ground Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ground.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Rs. ${ground.pricePerHour.toStringAsFixed(0)}/hour',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Status Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ground.isAvailable
+                        ? Colors.green.shade50
+                        : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    ground.isAvailable ? 'Available' : 'Unavailable',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: ground.isAvailable
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey.shade400,
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRatingBar(int stars, int percentage) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Text(
+            '$stars',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.star, size: 12, color: Colors.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: percentage / 100,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$percentage%',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           ),
         ],
       ),
@@ -366,12 +531,13 @@ class _FutsalDetailScreenState extends State<FutsalDetailScreen> {
     required String name,
     required int rating,
     required String date,
-    required String review,
+    required String comment,
+    required String avatar,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -380,18 +546,21 @@ class _FutsalDetailScreenState extends State<FutsalDetailScreen> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: AppColors.primary.withOpacity(0.1),
-                child: Text(
-                  name[0].toUpperCase(),
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
+              // Avatar
+              Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(avatar, style: const TextStyle(fontSize: 24)),
                 ),
               ),
               const SizedBox(width: 12),
+
+              // Name and Rating
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,40 +570,145 @@ class _FutsalDetailScreenState extends State<FutsalDetailScreen> {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      date,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Row(
+                          children: List.generate(5, (index) {
+                            return Icon(
+                              index < rating ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 16,
+                            );
+                          }),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          date,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: List.generate(
-              5,
-              (index) => Icon(
-                index < rating ? Icons.star : Icons.star_border,
-                size: 16,
-                color: Colors.amber.shade600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
+
+          const SizedBox(height: 12),
+
+          // Comment
           Text(
-            review,
+            comment,
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade700,
-              height: 1.4,
+              height: 1.5,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWriteReviewDialog(BuildContext context) {
+    int selectedRating = 5;
+    final TextEditingController commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Write a Review',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your Rating',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    return IconButton(
+                      onPressed: () {
+                        setState(() {
+                          selectedRating = index + 1;
+                        });
+                      },
+                      icon: Icon(
+                        index < selectedRating ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 32,
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Your Comment',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: commentController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    hintText: 'Share your experience...',
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Review submitted! Thank you!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Submit'),
           ),
         ],
       ),

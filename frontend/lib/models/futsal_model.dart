@@ -1,23 +1,23 @@
 class Futsal {
   final int id;
   final String name;
-  final String location;
+  final String? location;
   final String? description;
-  final String contact;
+  final String? contact;
+  final String? image;
   final bool isActive;
-  final double averageRating;
-  final int totalReviews;
+  final DateTime? createdAt;
   final List<Ground>? grounds;
 
   Futsal({
     required this.id,
     required this.name,
-    required this.location,
+    this.location,
     this.description,
-    required this.contact,
-    this.isActive = true,
-    this.averageRating = 0.0,
-    this.totalReviews = 0,
+    this.contact,
+    this.image,
+    required this.isActive,
+    this.createdAt,
     this.grounds,
   });
 
@@ -28,11 +28,15 @@ class Futsal {
       location: json['location'],
       description: json['description'],
       contact: json['contact'],
+      image: json['image'],
       isActive: json['is_active'] ?? true,
-      averageRating: (json['average_rating'] ?? 0.0).toDouble(),
-      totalReviews: json['total_reviews'] ?? 0,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
       grounds: json['grounds'] != null
-          ? (json['grounds'] as List).map((g) => Ground.fromJson(g)).toList()
+          ? (json['grounds'] as List)
+                .map((ground) => Ground.fromJson(ground))
+                .toList()
           : null,
     );
   }
@@ -44,87 +48,45 @@ class Futsal {
       'location': location,
       'description': description,
       'contact': contact,
+      'image': image, // ADD THIS
       'is_active': isActive,
-      'average_rating': averageRating,
-      'total_reviews': totalReviews,
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 }
 
 class Ground {
   final int id;
-  final int futsalId;
   final String name;
   final double pricePerHour;
   final bool isAvailable;
+  final int futsal;
 
   Ground({
     required this.id,
-    required this.futsalId,
     required this.name,
     required this.pricePerHour,
-    this.isAvailable = true,
+    required this.isAvailable,
+    required this.futsal,
   });
 
   factory Ground.fromJson(Map<String, dynamic> json) {
     return Ground(
       id: json['id'],
-      futsalId: json['futsal'],
       name: json['name'],
-      pricePerHour: double.parse(
-        json['price_per_hour'].toString(),
-      ), //This one works for both string and number
+      pricePerHour: double.parse(json['price_per_hour'].toString()),
       isAvailable: json['is_available'] ?? true,
+      futsal: json['futsal'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'futsal': futsalId,
       'name': name,
       'price_per_hour': pricePerHour,
       'is_available': isAvailable,
-    };
-  }
-}
-
-class TimeSlot {
-  final int id;
-  final int groundId;
-  final String date;
-  final String startTime;
-  final String endTime;
-  final bool isBooked;
-
-  TimeSlot({
-    required this.id,
-    required this.groundId,
-    required this.date,
-    required this.startTime,
-    required this.endTime,
-    this.isBooked = false,
-  });
-
-  factory TimeSlot.fromJson(Map<String, dynamic> json) {
-    return TimeSlot(
-      id: json['id'],
-      groundId: json['ground'],
-      date: json['date'],
-      startTime: json['start_time'],
-      endTime: json['end_time'],
-      isBooked: json['is_booked'] ?? false,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'ground': groundId,
-      'date': date,
-      'start_time': startTime,
-      'end_time': endTime,
-      'is_booked': isBooked,
+      'futsal': futsal,
     };
   }
 }

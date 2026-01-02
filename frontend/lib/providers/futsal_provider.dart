@@ -1,27 +1,23 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../models/futsal_model.dart';
 import '../services/api_service.dart';
-import '../core/constants/api_constants.dart';
 
 class FutsalProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
 
   List<Futsal> _futsals = [];
-  Futsal? _selectedFutsal;
-  List<Ground> _grounds = [];
-  List<TimeSlot> _timeSlots = [];
-
+  List<Futsal> _filteredFutsals = [];
   bool _isLoading = false;
   String? _errorMessage;
 
-  List<Futsal> get futsals => _futsals;
-  Futsal? get selectedFutsal => _selectedFutsal;
-  List<Ground> get grounds => _grounds;
-  List<TimeSlot> get timeSlots => _timeSlots;
+  List<Futsal> get futsals => _filteredFutsals.isEmpty && _searchQuery.isEmpty
+      ? _futsals
+      : _filteredFutsals;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // Fetch all futsals
+  String _searchQuery = '';
+
   Future<void> fetchFutsals() async {
     print('fetchFutsals called');
     _isLoading = true;
@@ -29,109 +25,68 @@ class FutsalProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      print('Making API call to: ${ApiConstants.futsals}');
-      final response = await _apiService.get(ApiConstants.futsals);
+      final response = await _apiService.get('/api/futsals/');
       print('Response status: ${response.statusCode}');
       print('Response data: ${response.data}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['results'] ?? response.data;
-        print('Data count: ${data.length}');
-        _futsals = data.map((json) => Futsal.fromJson(json)).toList();
+        final data = response.data;
+
+        // Handle both paginated and non-paginated responses
+        final List<dynamic> results = data['results'] ?? data;
+
+        _futsals = results.map((json) => Futsal.fromJson(json)).toList();
+        _filteredFutsals = _futsals;
+
+        print('Data count: ${results.length}');
         print('Futsals loaded: ${_futsals.length}');
-      }
 
-      _isLoading = false;
-      notifyListeners();
+        _errorMessage = null;
+      } else {
+        _errorMessage = 'Failed to load futsals';
+        print('Error: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error: $e');
+      _errorMessage = 'Error: ${e.toString()}';
+      print('Exception in fetchFutsals: $e');
+    } finally {
       _isLoading = false;
-      _errorMessage = e.toString();
       notifyListeners();
     }
   }
 
-  // Get futsal by ID
-  Future<void> getFutsalById(int id) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final response = await _apiService.get('${ApiConstants.futsals}$id/');
-
-      if (response.statusCode == 200) {
-        _selectedFutsal = Futsal.fromJson(response.data);
-
-        // Also load grounds for this futsal
-        if (response.data['grounds'] != null) {
-          final List<dynamic> groundsData = response.data['grounds'];
-          _grounds = groundsData.map((json) => Ground.fromJson(json)).toList();
-        }
-      }
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // Fetch time slots for a ground on a specific date
-  Future<void> fetchTimeSlots({
-    required int groundId,
-    required String date,
-  }) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final response = await _apiService.get(
-        ApiConstants.timeSlots,
-        queryParameters: {'ground': groundId, 'date': date},
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['results'] ?? response.data;
-        _timeSlots = data.map((json) => TimeSlot.fromJson(json)).toList();
-      }
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // Search futsals
   void searchFutsals(String query) {
+    _searchQuery = query;
+
     if (query.isEmpty) {
-      notifyListeners();
-      return;
+      _filteredFutsals = _futsals;
+    } else {
+      _filteredFutsals = _futsals.where((futsal) {
+        final nameLower = futsal.name.toLowerCase();
+        final locationLower = futsal.location?.toLowerCase() ?? '';
+        final searchLower = query.toLowerCase();
+
+        return nameLower.contains(searchLower) ||
+            locationLower.contains(searchLower);
+      }).toList();
     }
 
-    _futsals = _futsals.where((futsal) {
-      return futsal.name.toLowerCase().contains(query.toLowerCase()) ||
-          futsal.location.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-
     notifyListeners();
   }
 
-  // Clear selected futsal
-  void clearSelectedFutsal() {
-    _selectedFutsal = null;
-    _grounds = [];
-    _timeSlots = [];
-    notifyListeners();
+  Future<Futsal?> getFutsalById(int id) async {
+    try {
+      final response = await _apiService.get('/api/futsals/$id/');
+
+      if (response.statusCode == 200) {
+        return Futsal.fromJson(response.data);
+      }
+    } catch (e) {
+      print('Error fetching futsal details: $e');
+    }
+    return null;
   }
 
-  // Clear error
   void clearError() {
     _errorMessage = null;
     notifyListeners();

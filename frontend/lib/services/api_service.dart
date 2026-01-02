@@ -1,196 +1,71 @@
 import 'package:dio/dio.dart';
-import '../core/constants/api_constants.dart';
 import 'storage_service.dart';
 
 class ApiService {
-  static final ApiService _instance = ApiService._internal();
-  factory ApiService() => _instance;
-
-  ApiService._internal() {
-    initialize();
-  }
-
-  late final Dio _dio;
+  final Dio _dio = Dio();
   final StorageService _storageService = StorageService();
-  bool _isRefreshing = false;
+  static const String baseUrl = 'http://localhost:8000'; // Make it static const
 
-  void initialize() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
+  ApiService() {
+    _dio.options.baseUrl = baseUrl;
+    _dio.options.connectTimeout = const Duration(seconds: 30);
+    _dio.options.receiveTimeout = const Duration(seconds: 30);
 
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Skip auth for public endpoints
-          final publicEndpoints = [
-            '/token',
-            '/register',
-            '/forgot-password',
-            '/reset-password',
-          ];
-          if (publicEndpoints.any(
-            (endpoint) => options.path.contains(endpoint),
-          )) {
-            return handler.next(options);
-          }
-
-          // Add token for protected endpoints
           final token = await _storageService.getAccessToken();
-          if (token != null && token.isNotEmpty) {
+          if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
-        onError: (error, handler) async {
-          // Don't try to refresh for public endpoints
-          final publicEndpoints = [
-            '/token',
-            '/register',
-            '/forgot-password',
-            '/reset-password',
-          ];
-          if (publicEndpoints.any(
-            (endpoint) => error.requestOptions.path.contains(endpoint),
-          )) {
-            return handler.next(error);
-          }
-
-          // Only try refresh for protected endpoints with 401
-          if (error.response?.statusCode == 401 && !_isRefreshing) {
-            final refreshToken = await _storageService.getRefreshToken();
-
-            if (refreshToken != null && refreshToken.isNotEmpty) {
-              _isRefreshing = true;
-              final refreshed = await _refreshToken();
-              _isRefreshing = false;
-
-              if (refreshed) {
-                final options = error.requestOptions;
-                final token = await _storageService.getAccessToken();
-                options.headers['Authorization'] = 'Bearer $token';
-
-                try {
-                  final response = await _dio.fetch(options);
-                  return handler.resolve(response);
-                } catch (e) {
-                  return handler.reject(error);
-                }
-              }
-            }
-          }
+        onError: (error, handler) {
           return handler.next(error);
         },
       ),
     );
   }
 
-  Future<bool> _refreshToken() async {
+  Future<Response> get(String path) async {
     try {
-      final refreshToken = await _storageService.getRefreshToken();
-      if (refreshToken == null) return false;
-
-      final response = await Dio().post(
-        ApiConstants.refreshToken,
-        data: {'refresh': refreshToken},
-      );
-
-      if (response.statusCode == 200) {
-        final newAccessToken = response.data['access'];
-        await _storageService.saveTokens(
-          accessToken: newAccessToken,
-          refreshToken: refreshToken,
-        );
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<Response> get(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-  }) async {
-    try {
-      final response = await _dio.get(path, queryParameters: queryParameters);
+      final response = await _dio.get(path);
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Response> post(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-  }) async {
+  Future<Response> post(String path, {dynamic data}) async {
     try {
-      final response = await _dio.post(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      final response = await _dio.post(path, data: data);
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Response> put(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-  }) async {
+  Future<Response> patch(String path, {dynamic data}) async {
     try {
-      final response = await _dio.put(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      final response = await _dio.patch(path, data: data);
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Response> patch(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-  }) async {
+  Future<Response> put(String path, {dynamic data}) async {
     try {
-      final response = await _dio.patch(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      final response = await _dio.put(path, data: data);
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  Future<Response> delete(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-  }) async {
+  Future<Response> delete(String path) async {
     try {
-      final response = await _dio.delete(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-      );
+      final response = await _dio.delete(path);
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
@@ -201,19 +76,30 @@ class ApiService {
     String path,
     String filePath, {
     Map<String, dynamic>? data,
-    String fieldName = 'image',
+    String fieldName = 'file',
   }) async {
     try {
+      final token = await _storageService.getAccessToken();
+
       final formData = FormData.fromMap({
-        fieldName: await MultipartFile.fromFile(filePath),
+        fieldName: await MultipartFile.fromFile(
+          filePath,
+          filename: filePath.split('/').last,
+        ),
         ...?data,
       });
 
       final response = await _dio.post(
         path,
         data: formData,
-        options: Options(headers: {'Content-Type': 'multipart/form-data'}),
+        options: Options(
+          headers: {
+            'Authorization': token != null ? 'Bearer $token' : '',
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
       );
+
       return response;
     } on DioException catch (e) {
       throw _handleError(e);
