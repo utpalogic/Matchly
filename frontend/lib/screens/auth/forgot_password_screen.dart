@@ -31,65 +31,160 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _isLoading = true;
     });
 
-    final result = await _authService.forgotPassword(
-      _emailController.text.trim(),
-    );
+    try {
+      final result = await _authService.forgotPassword(
+        _emailController.text.trim(),
+      );
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (result['success']) {
-      // In development, show the token
-      // In production, just show success message
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Reset Link Sent'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Password reset link has been sent to your email.'),
-              const SizedBox(height: 16),
-              const Text(
-                'For testing, here is your token:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+      if (result['success'] == true && result['token'] != null) {
+        // Success  show dialog with token
+        _showSuccessDialog(result['token'], result['email']);
+      } else {
+        // Should not reach here if backend works correctly
+        _showErrorMessage('Failed to send reset link');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+
+      // Handle errors
+      String errorMessage = 'Failed to send reset link';
+
+      if (e.toString().contains('404') ||
+          e.toString().contains('No account found')) {
+        errorMessage = 'No account found with this email address';
+      } else if (e.toString().contains('Connection') ||
+          e.toString().contains('Network')) {
+        errorMessage = 'Network error. Please check your connection';
+      } else {
+        errorMessage = 'An error occurred. Please try again';
+      }
+
+      _showErrorMessage(errorMessage);
+    }
+  }
+
+  void _showSuccessDialog(String token, String? email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 28),
+            const SizedBox(width: 12),
+            const Text('Reset Link Sent'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Password reset instructions have been sent to ${email ?? "your email"}.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
               ),
-              const SizedBox(height: 8),
-              SelectableText(
-                result['token'] ?? '',
-                style: TextStyle(fontSize: 12, color: AppColors.primary),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        ResetPasswordScreen(token: result['token'] ?? ''),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.blue.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'For testing purposes:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: const Text('Continue to Reset'),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    token,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.primary,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message'] ?? 'Failed to send reset link'),
-          backgroundColor: Colors.red,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ResetPasswordScreen(token: token),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Reset Password'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
         ),
-      );
-    }
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -181,7 +276,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                 // Send button
                 CustomButton(
-                  text: 'Send Reset Link',
+                  text: 'Reset Password',
                   onPressed: _handleForgotPassword,
                   isLoading: _isLoading,
                   height: 56,

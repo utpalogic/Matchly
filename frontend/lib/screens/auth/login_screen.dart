@@ -46,8 +46,6 @@ class _LoginScreenState extends State<LoginScreen> {
           context,
           MaterialPageRoute(builder: (context) => MainNavigationScreen()),
         );
-
-        // TODO: Navigate to home screen
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -237,50 +235,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 56,
                     );
                   },
-                ),
-
-                const SizedBox(height: 20),
-
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.grey.shade300)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Or',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ),
-                    Expanded(child: Divider(color: Colors.grey.shade300)),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Google sign-in coming soon!'),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.g_mobiledata, size: 24),
-                  label: const Text(
-                    'Sign up with Google',
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 56),
-                    side: BorderSide(color: Colors.grey.shade300),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
                 ),
 
                 const SizedBox(height: 20),

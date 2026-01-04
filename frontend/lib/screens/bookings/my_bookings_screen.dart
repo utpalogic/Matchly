@@ -171,7 +171,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: Futsal Name & Status
+            // Futsal Name & Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

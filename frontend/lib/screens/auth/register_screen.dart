@@ -26,7 +26,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _selectedGender;
   String? _selectedPosition;
   DateTime? _selectedDate;
-  bool _agreedToTerms = false;
 
   final List<String> _genders = ['MALE', 'FEMALE', 'OTHER'];
   final List<String> _positions = ['GK', 'DEF', 'MID', 'FWD'];
@@ -76,16 +75,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // if (!_agreedToTerms) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(
-    //       content: Text('Please agree to Terms of Service and Privacy Policy'),
-    //       backgroundColor: Colors.red,
-    //     ),
-    //   );
-    //   return;
-    // }
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     final result = await authProvider.register(
@@ -134,7 +123,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          ),
         ),
       ),
       body: SafeArea(
@@ -418,23 +410,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
 
                 const SizedBox(height: 20),
-
-                // Terms and Conditions
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _agreedToTerms,
-                      activeColor: AppColors.primary,
-                      onChanged: (value) {
-                        setState(() {
-                          _agreedToTerms = value ?? false;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 30),
 
                 // Create Account button
                 Consumer<AuthProvider>(
