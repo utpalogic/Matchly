@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/loyalty/loyalty_screen.dart';
+import 'package:frontend/screens/teams/teams_screen.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
@@ -137,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: _buildQuickActionCard(
                         icon: '⚽',
-                        title: 'Book Match',
+                        title: 'Favourite Futsals',
                         color: Colors.grey.shade100,
                         textColor: Colors.black87,
                         onTap: () {},
@@ -150,7 +152,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: 'Team',
                         color: Colors.grey.shade100,
                         textColor: Colors.black87,
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const TeamsScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -179,7 +188,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: 'Loyalty',
                         color: Colors.grey.shade100,
                         textColor: Colors.black87,
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoyaltyScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -226,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 16),
 
-              // Futsal Grounds Horizontal List - Exact match
+              // Futsal Grounds Horizontal List
               Consumer<FutsalProvider>(
                 builder: (context, futsalProvider, child) {
                   if (futsalProvider.isLoading) {
@@ -322,35 +338,43 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color textColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 32)),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: textColor,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        splashColor: AppColors.primary.withOpacity(0.2),
+        highlightColor: AppColors.primary.withOpacity(0.1),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(icon, style: const TextStyle(fontSize: 36)),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

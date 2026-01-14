@@ -6,7 +6,8 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
-    
+    reward_progress = serializers.SerializerMethodField()  
+    is_eligible_for_reward = serializers.SerializerMethodField() 
     class Meta:
         model = User
         fields = [
@@ -23,10 +24,16 @@ class UserSerializer(serializers.ModelSerializer):
             'profile_picture_url',
             'matches_played', 
             'is_looking_for_team',
+            'total_bookings',  
+            'bookings_since_reward',  
+            'total_rewards_claimed',  
+            'reward_progress',  
+            'is_eligible_for_reward',  
             'is_blocked',
             'futsal'
         ]
-        read_only_fields = ['id', 'matches_played', 'is_blocked']
+        read_only_fields = ['id', 'matches_played', 'is_blocked', 'total_bookings', 
+                            'bookings_since_reward', 'total_rewards_claimed']
     
         #added this method to get full url of profile picture
     def get_profile_picture_url(self, obj):
@@ -36,6 +43,16 @@ class UserSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.profile_picture.url)
         return None
+    def get_reward_progress(self, obj):
+        """Returns progress like 5 out of 7"""
+        return {
+            'current': obj.get_reward_progress(),
+            'target': 7
+        }
+    
+    def get_is_eligible_for_reward(self, obj):
+        """Returns True if user can claim free booking"""
+        return obj.is_eligible_for_reward()
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
@@ -52,7 +69,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password'],  # create_user will hash this
         )
         
-        # Set additional fields
+        # Setting additional fields
         user.phone = validated_data.get('phone', '')
         user.full_name = validated_data.get('full_name', '')
         user.gender = validated_data.get('gender', '')
@@ -85,28 +102,25 @@ class FutsalSerializer(serializers.ModelSerializer):
 
 class TeamSerializer(serializers.ModelSerializer):
     captain_name = serializers.CharField(source='captain.username', read_only=True)
-    members_count = serializers.SerializerMethodField()
-    reward_progress = serializers.SerializerMethodField()
+    member_count = serializers.IntegerField(read_only=True)  
     
     class Meta:
         model = Team
-        fields = ['id', 'name', 'captain', 'captain_name', 'members', 'matches_count', 
-                  'members_count', 'reward_progress', 'created_at']
-    
-    def get_members_count(self, obj):
-        return obj.members.count()
-    
-    def get_reward_progress(self, obj):
-        try:
-            tracker = obj.reward_tracker
-            return {
-                'current': tracker.matches_since_reward,
-                'target': 8,
-                'eligible': tracker.is_eligible_for_reward(),
-                'total_claimed': tracker.total_rewards_claimed
-            }
-        except RewardTracker.DoesNotExist:
-            return {'current': 0, 'target': 8, 'eligible': False, 'total_claimed': 0}
+        fields = [
+            'id',
+            'name',
+            'description',
+            'captain',
+            'captain_name',
+            'member_count',
+            'matches_count',
+            'created_at',
+            'is_active',
+        ]
+        read_only_fields = ['id', 'captain', 'matches_count', 'created_at', 'is_active']
+        extra_kwargs = {
+            'captain': {'required': False}
+        }
 
 class BookingSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)

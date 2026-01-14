@@ -37,10 +37,22 @@ class User(AbstractUser):
     
     password_reset_token = models.CharField(max_length=100, blank=True, null=True)
     password_reset_token_created = models.DateTimeField(null=True, blank=True)
+    #Loyalty System
+    total_bookings = models.IntegerField(default=0)  # Total paid bookings
+    bookings_since_reward = models.IntegerField(default=0)  # Bookings since last free booking
+    total_rewards_claimed = models.IntegerField(default=0)  # Total free bookings claimed
     
     def __str__(self):
         return self.username
-
+    
+    # ADD THIS METHOD
+    def is_eligible_for_reward(self):
+        """Check if user is eligible for a free booking"""
+        return self.bookings_since_reward >= 7
+    
+    def get_reward_progress(self):
+        """Get progress towards next reward (e.g., 5/7)"""
+        return min(self.bookings_since_reward, 7)
 
 # Futsal Venue
 class Futsal(models.Model):
@@ -85,13 +97,17 @@ class TimeSlot(models.Model):
 # Team
 class Team(models.Model):
     name = models.CharField(max_length=100)
+    description = models.TextField(blank=True) 
     captain = models.ForeignKey(User, on_delete=models.CASCADE, related_name='captained_teams')
     members = models.ManyToManyField(User, related_name='teams', blank=True)
     matches_count = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+    class Meta:
+        ordering = ['-created_at']
 
 
 # Booking
@@ -116,6 +132,9 @@ class Booking(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='CONFIRMED')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='PENDING')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_free_booking = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     is_reward_booking = models.BooleanField(default=False)
     booking_date = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
@@ -123,7 +142,8 @@ class Booking(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.ground} - {self.time_slot.date}"
 
-
+    class Meta:
+        ordering = ['-created_at']
 # Tournament
 class Tournament(models.Model):
     name = models.CharField(max_length=200)
@@ -198,17 +218,3 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.author.username} on {self.post.title}"
-
-
-# Reward Tracking
-class RewardTracker(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='reward_tracker')
-    matches_since_reward = models.IntegerField(default=0)
-    total_rewards_claimed = models.IntegerField(default=0)
-    next_reward_at = models.IntegerField(default=8)
-
-    def __str__(self):
-        return f"{self.team.name} - {self.matches_since_reward}/8 matches"
-
-    def is_eligible_for_reward(self):
-        return self.matches_since_reward >= 8

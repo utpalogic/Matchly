@@ -1,45 +1,35 @@
 class Team {
   final int id;
   final String name;
-  final int captainId;
-  final String? captainName;
-  final List<int> memberIds;
-  final int maxMembers;
-  final String createdAt;
+  final String description;
+  final int captain;
+  final String captainName;
+  final int memberCount;
+  final int matchesCount;
+  final DateTime createdAt;
 
   Team({
     required this.id,
     required this.name,
-    required this.captainId,
-    this.captainName,
-    this.memberIds = const [],
-    this.maxMembers = 10,
+    required this.description,
+    required this.captain,
+    required this.captainName,
+    required this.memberCount,
+    required this.matchesCount,
     required this.createdAt,
   });
 
+  // Convert JSON from API to Team object
   factory Team.fromJson(Map<String, dynamic> json) {
     return Team(
-      id: json['id'],
-      name: json['name'],
-      captainId: json['captain'],
-      captainName: json['captain_name'],
-      memberIds: json['members'] != null ? List<int>.from(json['members']) : [],
-      maxMembers: json['max_members'] ?? 10,
-      createdAt: json['created_at'],
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      captain: json['captain'] ?? 0,
+      captainName: json['captain_name'] ?? 'Unknown',
+      memberCount: json['member_count'] ?? 0,
+      matchesCount: json['matches_count'] ?? 0,
+      createdAt: DateTime.parse(json['created_at']),
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'captain': captainId,
-      'members': memberIds,
-      'max_members': maxMembers,
-    };
-  }
-
-  int get memberCount => memberIds.length;
-
-  bool get isFull => memberIds.length >= maxMembers;
 }

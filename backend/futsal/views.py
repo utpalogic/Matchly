@@ -31,7 +31,7 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def me(self, request):
-        serializer = self.get_serializer(request.user, context={'request': request})  # ADD context
+        serializer = self.get_serializer(request.user, context={'request': request}) 
         return Response(serializer.data)
     
     @action(detail=False, methods=['patch'])
@@ -40,7 +40,7 @@ class UserViewSet(viewsets.ModelViewSet):
             request.user, 
             data=request.data, 
             partial=True,
-            context={'request': request}  # ADD context
+            context={'request': request}  
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -82,7 +82,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user.profile_picture = request.FILES['profile_picture']
         user.save()
         
-        # Return updated user data WITH CONTEXT
+        # Return updated user data with context
         serializer = self.get_serializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -174,7 +174,7 @@ def reset_password(request):
                     status=400
                 )
         
-        # CRITICAL: Use set_password to hash the password
+        # Use set_password to hash the password
         user.set_password(new_password)
         user.password_reset_token = None
         user.password_reset_token_created = None
@@ -248,15 +248,41 @@ class TeamViewSet(viewsets.ModelViewSet):
     serializer_class = TeamSerializer
     permission_classes = [IsAuthenticated]
     
+    def get_queryset(self):
+        # Add member count for better performance
+        from django.db.models import Count
+        return Team.objects.annotate(member_count=Count('members'))
+    
     def perform_create(self, serializer):
         team = serializer.save(captain=self.request.user)
-        #Reward tracker
-        RewardTracker.objects.create(team=team)
+        # Add captain as member
+        team.members.add(self.request.user)
     
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
         team = self.get_object()
-        team.members.add(request.user)
+        user = request.user
+        
+        # Check if user is already in any team
+        existing_teams = Team.objects.filter(
+            Q(captain=user) | Q(members=user)
+        ).exclude(id=team.id)
+        
+        if existing_teams.exists():
+            return Response(
+                {'error': 'You can only be in one team at a time. Please leave your current team first.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if already in this team
+        if team.members.filter(id=user.id).exists() or team.captain == user:
+            return Response(
+                {'error': 'You are already in this team'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Join team
+        team.members.add(user)
         return Response({'message': 'Joined team successfully'})
     
     @action(detail=True, methods=['post'])
@@ -268,11 +294,14 @@ class TeamViewSet(viewsets.ModelViewSet):
         team.members.remove(request.user)
         return Response({'message': 'Left team successfully'})
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='my-teams')
     def my_teams(self, request):
+        from django.db.models import Count, Q
+        # only teams where user is captain or member
         teams = Team.objects.filter(
             Q(captain=request.user) | Q(members=request.user)
-        ).distinct()
+        ).distinct().annotate(member_count=Count('members'))
+        
         serializer = self.get_serializer(teams, many=True)
         return Response(serializer.data)
 
@@ -287,24 +316,33 @@ class BookingViewSet(viewsets.ModelViewSet):
         return Booking.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):
-        booking = serializer.save(user=self.request.user)
+        user = self.request.user
         
-        # Update team matches count for reward tracking
+        # Check if user is eligible for free booking
+        is_free_booking = user.is_eligible_for_reward()
+        
+        # Create the booking
+        booking = serializer.save(
+            user=user,
+            is_free_booking=is_free_booking  # Mark as free if eligible
+        )
+        
+        # Update user's booking counts
+        if is_free_booking:
+            # Reset counter after claiming reward
+            user.bookings_since_reward = 0
+            user.total_rewards_claimed += 1
+        else:
+            # Increment counters for paid booking
+            user.total_bookings += 1
+            user.bookings_since_reward += 1
+        
+        user.save()
+        
+        # Update team matches if applicable
         if booking.team:
             booking.team.matches_count += 1
             booking.team.save()
-            
-            try:
-                tracker = booking.team.reward_tracker
-                tracker.matches_since_reward += 1
-                
-                if tracker.is_eligible_for_reward():
-                    tracker.matches_since_reward = 0
-                    tracker.total_rewards_claimed += 1
-                
-                tracker.save()
-            except RewardTracker.DoesNotExist:
-                RewardTracker.objects.create(team=booking.team, matches_since_reward=1)
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
