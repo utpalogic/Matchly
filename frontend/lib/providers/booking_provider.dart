@@ -65,24 +65,37 @@ class BookingProvider with ChangeNotifier {
 
   // Fetch user's bookings
   Future<void> fetchMyBookings() async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
     try {
-      final response = await _apiService.get('/api/bookings/my_bookings/');
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final response = await _apiService.get('/api/bookings/');
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
-        _bookings = data.map((json) => Booking.fromJson(json)).toList();
-        _errorMessage = null;
+        // Check if response is paginated
+        final data = response.data;
+
+        if (data is Map && data.containsKey('results')) {
+          // Paginated response
+          _bookings = (data['results'] as List)
+              .map((json) => Booking.fromJson(json))
+              .toList();
+        } else if (data is List) {
+          // Direct list response
+          _bookings = data.map((json) => Booking.fromJson(json)).toList();
+        } else {
+          throw Exception('Unexpected response format');
+        }
+
+        _isLoading = false;
+        notifyListeners();
       } else {
-        _errorMessage = 'Failed to load bookings';
+        throw Exception('Failed to load bookings');
       }
     } catch (e) {
-      _errorMessage = e.toString();
       print('Error fetching bookings: $e');
-    } finally {
+      _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
     }
@@ -96,7 +109,7 @@ class BookingProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        await fetchMyBookings(); // Refresh the list
+        await fetchMyBookings();
         return true;
       }
       return false;

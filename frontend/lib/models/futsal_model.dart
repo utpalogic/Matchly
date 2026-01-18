@@ -48,7 +48,7 @@ class Futsal {
       'location': location,
       'description': description,
       'contact': contact,
-      'image': image, // ADD THIS
+      'image': image,
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),
     };

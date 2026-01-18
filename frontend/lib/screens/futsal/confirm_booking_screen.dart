@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/futsal_model.dart';
 import '../../services/api_service.dart';
-import '../home/home_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ConfirmBookingScreen extends StatefulWidget {
   final Futsal futsal;
@@ -12,12 +12,12 @@ class ConfirmBookingScreen extends StatefulWidget {
   final DateTime selectedDate;
 
   const ConfirmBookingScreen({
-    super.key,
+    Key? key,
     required this.futsal,
     required this.ground,
     required this.timeSlots,
     required this.selectedDate,
-  });
+  }) : super(key: key);
 
   @override
   State<ConfirmBookingScreen> createState() => _ConfirmBookingScreenState();
@@ -39,46 +39,76 @@ class _ConfirmBookingScreenState extends State<ConfirmBookingScreen> {
 
   Future<void> _confirmBooking() async {
     setState(() => _isProcessing = true);
-
     try {
-      // Create bookings for each time slot
-      final bookingIds = <int>[];
+      final timeSlotIds = widget.timeSlots.map((slot) => slot['id']).toList();
+      final response = await _apiService.post(
+        '/api/bookings/create_with_khalti/',
+        data: {
+          'time_slots': timeSlotIds,
+          'ground_id': widget.ground.id,
+          'total_amount': (_totalAmount * 100).toInt(),
+        },
+      );
+      if (response.statusCode == 200) {
+        final paymentUrl = response.data['payment_url'];
 
-      for (var slot in widget.timeSlots) {
-        final response = await _apiService.post(
-          '/api/bookings/',
-          data: {
-            'time_slot': slot['id'],
-            'total_amount': _pricePerHour.toString(),
-            'notes': 'Booking for ${widget.ground.name}',
-          },
-        );
+        final Uri url = Uri.parse(paymentUrl);
 
-        if (response.statusCode == 201) {
-          bookingIds.add(response.data['id']);
+        await launchUrl(url, mode: LaunchMode.externalNonBrowserApplication);
+
+        setState(() => _isProcessing = false);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Complete payment in Khalti app. Check My Bookings after payment.',
+              ),
+              duration: Duration(seconds: 6),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
         }
       }
-
-      setState(() => _isProcessing = false);
-
-      if (mounted && bookingIds.isNotEmpty) {
-        // Show success dialog
-        _showSuccessDialog();
-      } else {
-        throw Exception('Failed to create bookings');
-      }
     } catch (e) {
+      print('ERROR: $e');
       setState(() => _isProcessing = false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Booking failed: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _verifyPaymentAndCreateBooking(String token, int amount) async {
+    print(' Starting verification with token: $token, amount: $amount');
+
+    try {
+      print('Calling verify endpoint...');
+      final verifyResponse = await _apiService.post(
+        '/api/users/verify_khalti_payment/',
+        data: {'token': token, 'amount': amount},
+      );
+
+      print('Verify response: ${verifyResponse.data}');
+
+      if (verifyResponse.data['status'] == 'success') {
+        print('Payment verified! Creating bookings...');
+        // ... rest of code
+      }
+    } catch (e) {
+      print('ERROR: $e'); // This will show the real error!
+
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Booking failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -99,7 +129,11 @@ class _ConfirmBookingScreenState extends State<ConfirmBookingScreen> {
                   color: Colors.green.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.check_circle, color: Colors.green, size: 64),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 64,
+                ),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -113,132 +147,24 @@ class _ConfirmBookingScreenState extends State<ConfirmBookingScreen> {
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Date:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        Text(
-                          DateFormat(
-                            'MMM dd, yyyy',
-                          ).format(widget.selectedDate),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Time:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        Text(
-                          _timeRange,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Duration:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        Text(
-                          '$_numberOfHours ${_numberOfHours == 1 ? "hour" : "hours"}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Total Paid:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        Text(
-                          'Rs. ${_totalAmount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Done',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
+              ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).popUntil((route) => route.isFirst);
-                  // Navigate to My Bookings if you have that screen
                 },
-                child: Text(
-                  'View My Bookings',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 40,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Done',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -264,291 +190,12 @@ class _ConfirmBookingScreenState extends State<ConfirmBookingScreen> {
         ),
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 150),
         child: Column(
           children: [
-            // Futsal Info Card
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.sports_soccer,
-                          color: AppColors.primary,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.futsal.name,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              widget.futsal.location ?? '',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  _buildInfoRow(Icons.stadium, 'Ground', widget.ground.name),
-                  const SizedBox(height: 12),
-                  _buildInfoRow(
-                    Icons.calendar_today,
-                    'Date',
-                    DateFormat(
-                      'EEEE, MMM dd, yyyy',
-                    ).format(widget.selectedDate),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildInfoRow(Icons.access_time, 'Time', _timeRange),
-                  const SizedBox(height: 12),
-                  _buildInfoRow(
-                    Icons.timer,
-                    'Duration',
-                    '$_numberOfHours ${_numberOfHours == 1 ? "hour" : "hours"}',
-                  ),
-                ],
-              ),
-            ),
-
-            // Selected Time Slots Card
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Selected Time Slots',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...widget.timeSlots.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final slot = entry.value;
-                    final startTime = slot['start_time'].substring(0, 5);
-                    final endTime = slot['end_time'].substring(0, 5);
-
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index < widget.timeSlots.length - 1 ? 8 : 0,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$startTime - $endTime',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    '1 hour',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              'Rs. ${_pricePerHour.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Price Breakdown Card
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Price Breakdown',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPriceRow(
-                    'Price per hour',
-                    'Rs. ${_pricePerHour.toStringAsFixed(0)}',
-                    isSubtitle: true,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildPriceRow(
-                    'Number of hours',
-                    'x $_numberOfHours',
-                    isSubtitle: true,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildPriceRow(
-                    'Subtotal',
-                    'Rs. ${_subtotal.toStringAsFixed(0)}',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildPriceRow(
-                    'Service fee (5%)',
-                    'Rs. ${_serviceFee.toStringAsFixed(0)}',
-                    isSubtitle: true,
-                  ),
-                  const Divider(height: 24),
-                  _buildPriceRow(
-                    'Total Amount',
-                    'Rs. ${_totalAmount.toStringAsFixed(0)}',
-                    isBold: true,
-                    isLarge: true,
-                    valueColor: AppColors.primary,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Payment Info
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.blue.shade700,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Click confirm to complete your booking',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 100),
+            _buildInfoCard(),
+            _buildTimeSlotsCard(),
+            _buildPriceBreakdownCard(),
           ],
         ),
       ),
@@ -622,6 +269,246 @@ class _ConfirmBookingScreenState extends State<ConfirmBookingScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.sports_soccer,
+                  color: AppColors.primary,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.futsal.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.futsal.location ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+          _buildInfoRow(Icons.stadium, 'Ground', widget.ground.name),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            Icons.calendar_today,
+            'Date',
+            DateFormat('EEEE, MMM dd, yyyy').format(widget.selectedDate),
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow(Icons.access_time, 'Time', _timeRange),
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            Icons.timer,
+            'Duration',
+            '$_numberOfHours ${_numberOfHours == 1 ? "hour" : "hours"}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeSlotsCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Selected Time Slots',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...widget.timeSlots.asMap().entries.map((entry) {
+            final index = entry.key;
+            final slot = entry.value;
+            final startTime = slot['start_time'].substring(0, 5);
+            final endTime = slot['end_time'].substring(0, 5);
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index < widget.timeSlots.length - 1 ? 8 : 0,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$startTime - $endTime',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text(
+                            '1 hour',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'Rs. ${_pricePerHour.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceBreakdownCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Price Breakdown',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildPriceRow(
+            'Price per hour',
+            'Rs. ${_pricePerHour.toStringAsFixed(0)}',
+            isSubtitle: true,
+          ),
+          const SizedBox(height: 8),
+          _buildPriceRow(
+            'Number of hours',
+            'x $_numberOfHours',
+            isSubtitle: true,
+          ),
+          const SizedBox(height: 8),
+          _buildPriceRow('Subtotal', 'Rs. ${_subtotal.toStringAsFixed(0)}'),
+          const SizedBox(height: 8),
+          _buildPriceRow(
+            'Service fee (5%)',
+            'Rs. ${_serviceFee.toStringAsFixed(0)}',
+            isSubtitle: true,
+          ),
+          const Divider(height: 24),
+          _buildPriceRow(
+            'Total Amount',
+            'Rs. ${_totalAmount.toStringAsFixed(0)}',
+            isBold: true,
+            isLarge: true,
+            valueColor: AppColors.primary,
+          ),
+        ],
       ),
     );
   }

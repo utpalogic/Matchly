@@ -4,7 +4,7 @@ import 'storage_service.dart';
 class ApiService {
   final Dio _dio = Dio();
   final StorageService _storageService = StorageService();
-  static const String baseUrl = 'http://localhost:8000'; // Make it static const
+  static const String baseUrl = 'http://localhost:8000';
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;

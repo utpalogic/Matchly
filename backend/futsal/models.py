@@ -218,3 +218,16 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.author.username} on {self.post.title}"
+
+class PendingBooking(models.Model):
+    """Temporary storage for bookings awaiting payment"""
+    booking_ref = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    time_slot_ids = models.JSONField()
+    ground_id = models.IntegerField()
+    pidx = models.CharField(max_length=200)
+    total_amount = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'pending_bookings'

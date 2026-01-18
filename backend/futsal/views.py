@@ -1,9 +1,15 @@
+import os
 import secrets
+import token
+from urllib import request
+import requests
+from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from django.shortcuts import render
+from dotenv import load_dotenv 
 
 # REST Framework imports
 from rest_framework import viewsets, status, filters
@@ -17,6 +23,7 @@ from django.db.models import Q
 from .models import *
 from .serializers import *
 
+load_dotenv()  # Load environment variables from .env file
 User = get_user_model()
 
 # User Registration  and Profile
@@ -105,6 +112,7 @@ class UserViewSet(viewsets.ModelViewSet):
         # Return updated user data
         serializer = self.get_serializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -307,8 +315,14 @@ class TeamViewSet(viewsets.ModelViewSet):
 
 # Bookings
 class BookingViewSet(viewsets.ModelViewSet):
+    queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action == 'khalti_verify':
+            return [AllowAny()]
+        return super().get_permissions()
     
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -376,6 +390,69 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.user.save()
         
         return Response({'message': 'Booking marked as completed'})
+
+    @action(detail=False, methods=['post'])
+    def create_with_khalti(self, request):
+        """Create booking with Khalti payment"""
+        
+        time_slot_ids = request.data.get('time_slots', [])
+        total_amount = request.data.get('total_amount')
+        ground_id = request.data.get('ground_id')
+        
+        if not time_slot_ids or not total_amount:
+            return Response({'error': 'Missing data'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Generate unique booking reference
+        booking_ref = f"BOOK_{request.user.id}_{secrets.token_hex(8)}"
+        
+        khalti_url = "https://a.khalti.com/api/v2/epayment/initiate/"
+        khalti_secret_key =os.getenv('KHALTI_SECRET_KEY') 
+        
+        payload = {
+           "return_url": f"http://localhost:8000/api/khalti-verify/?ref={booking_ref}",
+            "website_url": "http://localhost:8000",
+            "amount": total_amount,
+            "purchase_order_id": booking_ref,
+            "purchase_order_name": "Futsal Booking",
+            "customer_info": {
+                "name": request.user.full_name or request.user.username,
+                "email": request.user.email,
+                "phone": request.user.phone or "9800000000"
+            }
+        }
+        
+        headers = {
+            "Authorization": f"Key {khalti_secret_key}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            response = requests.post(khalti_url, json=payload, headers=headers)
+            response_data = response.json()
+            
+            if response.status_code == 200:
+                # Storing booking data in database cause sessions may not be reliable for long-term storage
+                # Alternatively, we can use cache or a temporary model
+                PendingBooking.objects.create(
+                    booking_ref=booking_ref,
+                    user=request.user,
+                    time_slot_ids=time_slot_ids,
+                    ground_id=ground_id,
+                    pidx=response_data.get('pidx'),
+                    total_amount=total_amount
+                )
+                
+                return Response({
+                    'payment_url': response_data.get('payment_url'),
+                    'booking_ref': booking_ref
+                })
+            else:
+                return Response(
+                    {'error': 'Payment initiation failed', 'details': response_data},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Tournaments
 class TournamentViewSet(viewsets.ModelViewSet):
@@ -476,3 +553,70 @@ class CommentViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def khalti_payment_verify(request):
+    """Verify Khalti payment and create booking"""
+    booking_ref = request.query_params.get('ref')
+    pidx = request.query_params.get('pidx')
+    
+    print(f"🔵 Verifying payment - ref: {booking_ref}, pidx: {pidx}")
+    
+    if not booking_ref or not pidx:
+        return Response({'error': 'Invalid callback'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get booking data from database
+    try:
+        pending = PendingBooking.objects.get(booking_ref=booking_ref)
+    except PendingBooking.DoesNotExist:
+        return Response({'error': 'Booking data not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    khalti_url = "https://a.khalti.com/api/v2/epayment/lookup/"
+    khalti_secret_key = os.getenv('KHALTI_SECRET_KEY')
+    
+    headers = {
+        "Authorization": f"Key {khalti_secret_key}",
+        "Content-Type": "application/json"
+    }
+    try:
+        response = requests.post(khalti_url, json={"pidx": pidx}, headers=headers)
+        payment_data = response.json()
+        
+        print(f"🔵 Khalti response status: {response.status_code}")
+        print(f"🔵 Khalti response data: {payment_data}")
+        
+        if response.status_code == 200 and payment_data.get('status') == 'Completed':
+            # Payment verified, Create bookings
+            for slot_id in pending.time_slot_ids:
+                time_slot = TimeSlot.objects.get(id=slot_id)
+                
+                Booking.objects.create(
+                    user=pending.user,
+                    time_slot=time_slot,
+                    ground=time_slot.ground,
+                    amount_paid=pending.total_amount / 100,
+                    payment_status='PAID',
+                    status='CONFIRMED',
+                    notes=f'Khalti Payment - {payment_data.get("transaction_id")}'
+                )
+                
+                time_slot.is_booked = True
+                time_slot.save()
+            # Delete pending booking
+            pending.delete()
+            print("✅ All done!")
+            
+            return Response({
+                'status': 'success',
+                'message': 'Booking confirmed!'
+            })
+        else:
+            return Response(
+                {'status': 'failed', 'message': 'Payment verification failed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

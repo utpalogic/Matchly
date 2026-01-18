@@ -23,6 +23,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BookingProvider()),
       ],
       child: MaterialApp(
+        // Use KhaltiEnvironment.production for production
         title: 'Matchly',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(

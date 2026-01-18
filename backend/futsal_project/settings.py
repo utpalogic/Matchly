@@ -24,7 +24,7 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps
-    'futsal',  # Your app name
+    'futsal',  #  app name
 ]
 
 MIDDLEWARE = [
@@ -38,7 +38,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'futsal_project.urls'  # Adjust to your project name
+ROOT_URLCONF = 'futsal_project.urls' 
 
 TEMPLATES = [
     {
